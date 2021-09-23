@@ -19,8 +19,15 @@ def generate_data(ticker):
 
 def create_target_variable(df):
     df['SMA1'] = df['Close'].rolling(window=10, min_periods=1, center=False).mean()
-    df['SMA2'] = df['Close'].rolling(window=60, min_periods=1, center=False).mean()
-    df['Signal'] = np.where(df['SMA1'] > df['SMA2'],  1.0, 0.0)
+    df['SMA2'] = df['Close'].rolling(window=30, min_periods=1, center=False).mean()
+    conditions  = [ df['SMA1']  > df['SMA2'] + df['SMA1']*(3/100) , df['SMA1']  < df['SMA2'] - df['SMA1']*(3/100), True]
+    #buy, sell, hold
+    choices     = [ 1, -1, 0 ]
+    df['Signal'] = np.select(conditions, choices, default=np.nan)
+
+    print(df['Signal'].value_counts())
+    # df.to_csv("/Users/a./Desktop/prophet_stock_pipeline/buy_or_sell_signal/est.csv")
+    # df['Signal'] = np.where(df['SMA1'] > df['SMA2'],  1.0, 0.0)
     return df
 
 
@@ -138,7 +145,7 @@ def time_series_split(df, split_id = None, test_id=False, cut_id=None):
 
 def add_indicators(df):
     df['SMA1'] = df['Close'].rolling(window=10, min_periods=1, center=False).mean()
-    df['SMA2'] = df['Close'].rolling(window=60, min_periods=1, center=False).mean()
+    df['SMA2'] = df['Close'].rolling(window=30, min_periods=1, center=False).mean()
 
     df['MA21'] = moving_average(df, 10)
     df['MA63'] = moving_average(df, 30)

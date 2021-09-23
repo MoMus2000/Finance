@@ -8,6 +8,7 @@ import time
 import yfinance as yf
 from sklearn.ensemble import RandomForestClassifier
 from tqdm import tqdm
+import sklearn
 from sklearn.model_selection import RandomizedSearchCV
 from data import generate_data, time_series_split, create_target_variable, add_indicators, drop_useless_feats
 
@@ -25,7 +26,7 @@ def evaluate(train, test):
 
     start = time.time()
 
-    model = RandomForestClassifier(n_estimators=100, n_jobs=-1)
+    model = RandomForestClassifier(n_estimators=800, n_jobs=-1)
 
     # model = best_params(model, X_train, y_train)
 
@@ -36,6 +37,8 @@ def evaluate(train, test):
     print(f"Completed in {end - start} s ...")
 
     back_test(model, X_train, X_test, y_test, X_combined, y_combined, len(X_train))
+
+    print(sklearn.metrics.accuracy_score(res.predict(X_test), y_test))
 
 
 
@@ -79,35 +82,50 @@ def back_test(model, X_train, X_test, y_test, X_combined, y_combined, start):
 
     profit = 0
 
-    buy_price = X_combined.iloc[len(X_train)-1]['Close']
-    
-    for i in range(0, len(X_test)):
+    buy_price = start_off['Close']
+
+    error = 0
+
+    cool_down = False
+    cool_down_index = 0
+
+    for i in range(1, len(X_test)):
+
+        if i - cool_down_index < 10 and cool_down == True:
+            print("cooling down")
+            continue
+
+        cool_down = False
 
         today = X_test.iloc[i]
         decision = model.predict([list(today)])
-
+        
         if decision[0] == 1:
-            # Buy the stock            
-            buy_price = min(today['Close'],buy_price)
+            print("Price going up")
+            buy_price = min(buy_price, today['Close'])
 
-        elif decision[0] == 0:
+        if decision[0] == 0:
+            print("Holding")
+
+        if decision[0] == -1:
+            print("Price falling")
             if buy_price != float('inf'):
                 profit += today['Close'] - buy_price
+                cool_down = True
+                cool_down_index = i
                 buy_price = float('inf')
 
-        print(profit)
 
 
 
-
-    print(profit)
+    print(f"total profit {profit}")
 
 
 
 if __name__ == "__main__":
     #Backtesting on a 15day window
 
-    df = generate_data("IBM")
+    df = generate_data("GOOGL")
     df_tr, df_te = time_series_split(df, split_id = 0.2)
     df_tr1 = df_tr.copy()
     df_te1 = df_te.copy()
