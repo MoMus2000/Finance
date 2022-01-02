@@ -134,7 +134,7 @@ if __name__ == "__main__":
     with open("/Users/a./Desktop/markovitz_model/stocks.txt", 'r') as f:
         stocks = f.read().splitlines()
 
-    stocks = stocks[0:500]
+    # stocks = stocks[0:100]
     data = download_data(stocks)
     # show_data(data)
     returns = calculate_returns(data)

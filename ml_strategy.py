@@ -5,7 +5,14 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import datetime
+from scipy import optimize
+import time
 
+start = time.time()
+
+CUTOFF_DATE = datetime.date(2019,1,11)
+num_of_stocks = 502
 
 def download_data(stocks, period, intercept):
   data_frame = yf.download(stocks, period=period, intercept=intercept, \
@@ -20,14 +27,12 @@ def download_data(stocks, period, intercept):
   
   return data
 
-num_of_stocks = 300
-
 def calculate_return(stock):
   returns = np.log(stock/stock.shift(1))
   return returns
 
 def calculate_portfolio_return(weights, returns):
-  return np.dot(weights.T, returns.mean()*252)
+  return np.dot(returns.mean()*252, weights.T)
 
 def calculate_portfolio_variance(weights, returns):
   return np.sqrt(np.dot(weights.T, np.dot(returns.cov() * 252, weights)))
@@ -56,7 +61,7 @@ def generate_portfolios(weights, returns):
 def calculate_shape_ratio(weights, returns):
   r = calculate_portfolio_return(weights, returns)
   v = calculate_portfolio_variance(weights, returns)
-  return r/v
+  return -r/v
 
 
 def random_forest_strategy(data, index="SPY"):
@@ -128,8 +133,8 @@ def print_results(stock_data, optimum, returns):
     if opt.round(3) > 0:
       print(stock_data[idx], opt.round(3))
   
-  return_val = calculate_portfolio_return(weights, returns)
-  total_risk = calculate_portfolio_variance(weights, returns)
+  return_val = calculate_portfolio_return(optimum, returns)
+  total_risk = calculate_portfolio_variance(optimum, returns)
   print(f"Total return: {return_val}")
   print(f"Total risk: {total_risk}")
   print(f"Sharpe ratio {return_val/total_risk}")
@@ -137,10 +142,18 @@ def print_results(stock_data, optimum, returns):
   return return_val, total_risk
 
 def run_optimization():
-    with open("/content/stocks.txt", "r") as f:
+    with open("/Users/a./Desktop/Finance/markovitz_model/stocks.txt", "r") as f:
         stock_data = f.read().splitlines()
 
-    data = download_data(stock_data, "1y", "1d")
+    stock_data = stock_data[0:num_of_stocks]
+
+    data = download_data(stock_data, "3y", "1d")
+
+    # data = data[data.index<pd.to_datetime(datetime.date(2020,1,11))]
+
+    data.fillna(method='ffill', inplace = True)
+
+    data.fillna(method='bfill', inplace = True)
 
     weights = initialize_weights()
     returns = calculate_return(data)
@@ -155,19 +168,29 @@ def run_optimization():
     ret, risk = print_results(stock_data, optimum, returns)
 
 if __name__ == "__main__":
-    stocks = download_data(["AAPL", "GOOG", "FB", "TSLA", "MSFT", "SPY"], "1y", "1d")
-    ret = []
-    for i in range(0, 500):
-        predicted_return = random_forest_strategy(stocks)
-        ret.append(predicted_return)
-    ret = np.array(ret)
+  # run_optimization()
+  stocks = download_data(["CARR", "CMG", "COST", "DPZ", "ENPH", "EXR", "KR", "MRNA", "NEM", "NLOK", \
+   "ODFL", "TGT", "TSLA", "WST", "SPY"], "1y", "1d")
 
-    low = ret.mean() - 1.96 * ret.std() / np.sqrt(len(ret))
-    high = ret.mean() + 1.96 * ret.std() / np.sqrt(len(ret))
+  print(stocks.head())
 
-    print(f"Expected Return {ret.mean()} between {low} and {high}")
+  print(stocks.tail())
 
-    print(f"Expected Risk {ret.std()}")
+  ret = []
+  for i in range(0, 500):
+      predicted_return = random_forest_strategy(stocks)
+      ret.append(predicted_return)
+  ret = np.array(ret)
 
-    plt.plot(ret)
-    plt.show()
+  low = ret.mean() - 1.96 * ret.std() / np.sqrt(len(ret))
+  high = ret.mean() + 1.96 * ret.std() / np.sqrt(len(ret))
+
+  print(f"Expected Return {ret.mean()} between {low} and {high}")
+
+  print(f"Expected Risk {ret.std()}")
+
+  plt.plot(ret)
+  plt.show()
+  end = time.time()
+
+  print(f"Total run time: {end - start}s")
